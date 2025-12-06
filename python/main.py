@@ -30,7 +30,7 @@ def run(day: int) -> None:
 
 if __name__ == "__main__":
     days_to_run = {int(arg) for arg in sys.argv[1:]}
-    for day in range(1, 6):
+    for day in range(1, 7):
         if days_to_run and day not in days_to_run:
             continue
         run(day)
