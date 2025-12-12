@@ -9,10 +9,7 @@ class Region(NamedTuple):
 def extract_shapes(chunks: list[str]) -> list[int]:
     shapes = []
     for chunk in chunks:
-        count = 0
-        for char in chunk:
-            if char == "#":
-                count += 1
+        count = sum(1 if char == "#" else 0 for char in chunk)
         shapes.append(count)
     return shapes
 
