@@ -41,7 +41,7 @@ def run(text: str) -> tuple[Any, Any]:
             # The region is big enough to fit all presents fit even if we treat
             # them as 3x3 boxes.
             count += 1
-        elif region.area < sum(n * shapes[i] for i, n in enumerate(region.presents)):
+        elif region.area < sum(n * s for n, s in zip(region.presents, shapes)):
             # The region is too small to fit all presents irrespective of how
             # they are oriented.
             pass
