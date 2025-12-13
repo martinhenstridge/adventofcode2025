@@ -1,56 +1,74 @@
 from typing import Any
 
-
-def parse_indicator(raw: str) -> int:
-    lights = 0
-    for i, char in enumerate(raw[1:-1]):
-        if char == "#":
-            lights |= 1 << i
-    return lights
+import numpy as np
+from scipy.optimize import linprog
 
 
-def parse_buttons(raw: str) -> list[int]:
-    buttons = []
-    for part in raw.split():
-        button = 0
-        for wires in part[1:-1].split(","):
-            for wire in wires:
-                button |= 1 << int(wire)
-        buttons.append(button)
-    return buttons
+def parse_indicators(raw: str) -> list[int]:
+    return [i for i, char in enumerate(raw.strip("[]")) if char == "#"]
+
+
+def parse_buttons(raw: str) -> list[list[int]]:
+    return [[int(n) for n in b.strip("()").split(",")] for b in raw.split()]
 
 
 def parse_joltages(raw: str) -> list[int]:
-    return [int(num) for num in raw[1:-1].split(",")]
+    return [int(num) for num in raw.strip("{}").split(",")]
+
+
+def as_bitmask(indices: list[int]) -> int:
+    mask = 0
+    for index in indices:
+        mask |= 1 << index
+    return mask
+
+
+def solve_indicators(buttons: list[list[int]], indicators: list[int]) -> int:
+    indicators_bitmask = as_bitmask(indicators)
+    button_bitmasks = [as_bitmask(button) for button in buttons]
+
+    states = {0}
+    count = 0
+    while indicators_bitmask not in states:
+        count += 1
+        states_next = set()
+        for state in states:
+            for button in button_bitmasks:
+                states_next.add(state ^ button)
+        states = states_next
+    return count
+
+
+def solve_joltages(buttons: list[list[int]], joltages: list[int]) -> int:
+    A = np.array(
+        [[int(i in button) for button in buttons] for i, _ in enumerate(joltages)],
+        dtype=int,
+    )
+    b = np.array(joltages, dtype=int)
+    c = np.ones(len(buttons), dtype=int)
+
+    result = linprog(
+        c,
+        A_eq=A,
+        b_eq=b,
+        integrality=1,
+    )
+    return round(result.fun)
 
 
 def run(text: str) -> tuple[Any, Any]:
-    # text = TEXT
-    total = 0
+    total_indicators = 0
+    total_joltages = 0
+
     for line in text.splitlines():
-        raw_indicator, rest = line.split(maxsplit=1)
+        raw_indicators, rest = line.split(maxsplit=1)
         raw_buttons, raw_joltages = rest.rsplit(maxsplit=1)
 
-        indicator = parse_indicator(raw_indicator)
+        indicators = parse_indicators(raw_indicators)
         buttons = parse_buttons(raw_buttons)
         joltages = parse_joltages(raw_joltages)
 
-        states = {0}
-        count = 0
-        while indicator not in states:
-            count += 1
-            states_next = set()
-            for state in states:
-                for button in buttons:
-                    states_next.add(state ^ button)
-            states = states_next
-        total += count
+        total_indicators += solve_indicators(buttons, indicators)
+        total_joltages += solve_joltages(buttons, joltages)
 
-    return total, None
-
-
-TEXT = """\
-[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
-[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
-[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
-"""
+    return total_indicators, total_joltages
